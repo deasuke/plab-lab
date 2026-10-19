@@ -1,18 +1,19 @@
 {
   "checkedAt": "2026-10-20",
-  "status": "self-pretrial-ready-awaiting-site-publication",
+  "status": "published-awaiting-mobile-wallet-connection",
   "chainId": 80002,
   "participants": 1,
   "newAmoyTransactionsSent": 0,
-  "sitePublished": false,
-  "repositoryCreated": false,
+  "sitePublished": true,
+  "repositoryCreated": true,
   "policyTests": 5,
   "localIntegration": "11 operations plus expired-100 refund branch and history recovery passed",
   "productionBuild": "passed",
   "mobileBrowserPreview": "390px; 11 demo actions passed",
   "remaining": [
-    "site publication approval",
     "iOS/Android actual wallet connection",
     "user-approved trial transactions"
-  ]
+  ],
+  "siteUrl": "https://deasuke.github.io/plab-lab/",
+  "deploymentRun": "https://github.com/deasuke/plab-lab/actions/runs/39343946285"
 }

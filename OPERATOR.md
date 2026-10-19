@@ -57,7 +57,7 @@ sh mobile-pilot.sh activate pilot-001 0xPLAB送金の64桁ハッシュ 0xPOL送�
 4. Actions →「Publish participant site」→「Run workflow」で公開する。
 5. 正常終了後、公開URLを携帯電話で開いて確認する。
 
-予定URLは`https://deasuke.github.io/plab-lab/`、招待URLは`https://deasuke.github.io/plab-lab/?invite=pilot-001`です。現在はまだ未公開です。ワークフローは手動実行のみで、pushしただけでは公開しません。
+予定URLは`https://deasuke.github.io/plab-lab/`、招待URLは`https://deasuke.github.io/plab-lab/?invite=pilot-001`です。ご自身の予備試験用設定で公開します。他の参加者の登録はまだ行っていません。ワークフローは手動実行のみで、pushしただけでは公開しません。
 
 ## 6. 実機確認後に参加者へ案内する
 
