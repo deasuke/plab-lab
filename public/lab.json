@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "chainId": 80002,
+  "network": "Polygon Amoy",
+  "token": {
+    "address": "0x1eEfEA106EBE220751A24EB5192578D578025e34",
+    "name": "Polygon Lab Token",
+    "symbol": "PLAB",
+    "decimals": 18
+  },
+  "vault": "0x7BdC0119F9a84792b30c2aDeEAC502b47489b4E9",
+  "splitter": "0x0e673EAC0994794F26B73801b42b9b445f12763A",
+  "recipientB": "0x5a97648467f5CC5c9b289dE41DE3171F6dAC0572",
+  "recipientC": "0x1861A94D1880C2e29C8F0648499e0303765f4Cfc",
+  "rpcUrls": [
+    "https://polygon-amoy-bor-rpc.publicnode.com",
+    "https://polygon-amoy.drpc.org"
+  ],
+  "explorer": "https://amoy.polygonscan.com",
+  "codeHashes": {
+    "token": "0xffa9feefe1c7901d35703f3cdea0087ab782930c3ac2b115d9bfe005a6faa678",
+    "vault": "0xff5eadedcd0bcb569e8ea25c18ae5d1d8a5dd08411d1ca3e8963249755ec3d7d",
+    "splitter": "0xf3c870226bf508f73363fb09683c08b1a80728bcfd10cb308b422ccc33d09eb4"
+  },
+  "participants": [
+    {
+      "id": "self-a-20261020",
+      "address": "0xA467eE113C4a5f8100380BA327dcb6Ad549F10Ec",
+      "escrow": "0xF95AB50F75554cD685BdD0611F9d1B2c8772A465",
+      "escrowCodeHash": "0x8497b607ec412a58e1e87940a38c7881a2fafaf8b3f08aab3649fa6fdca26b89",
+      "orderBase": "2",
+      "startBlock": "50631110",
+      "status": "ready",
+      "mode": "self-pretrial-reuse"
+    }
+  ]
+}

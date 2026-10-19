@@ -1,0 +1,18 @@
+{
+  "name": "plab-mobile-lab",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 8790",
+    "build": "vite build --base=./",
+    "preview": "vite preview --host 127.0.0.1 --port 8790",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "@metamask/connect-evm": "2.1.1",
+    "viem": "2.57.4"
+  },
+  "devDependencies": { "vite": "8.3.4" },
+  "packageManager": "pnpm@11.25.0"
+}
