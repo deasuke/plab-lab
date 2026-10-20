@@ -47,6 +47,12 @@ export function transactionIntent(config,p,index,records,deadline){
  return {to:getAddress(to),data:encodeFunctionData({abi,functionName,args})};
 }
 const missing=e=>['TransactionReceiptNotFoundError','TransactionNotFoundError'].includes(e?.name);
+export function unresolvedRequests(records,history){
+ return records.filter(r=>['requesting','pending'].includes(r.state)&&!history.some(h=>
+  h.state==='confirmed'&&((r.hash&&same(h.hash,r.hash))||
+   (r.nonceBefore!=null&&h.nonce!=null&&String(r.nonceBefore)===String(h.nonce)&&r.index===h.index&&r.recovery===h.recovery&&same(r.to,h.to)&&same(r.data,h.data)))
+ ));
+}
 export class Lab {
  constructor({config,participant,client,provider,records=[],persist=()=>{}}){Object.assign(this,{config,p:participant,client,provider,records,persist});this.busy=false;}
  save(){this.persist(this.records);}
@@ -157,16 +163,16 @@ export class Lab {
    if(next>=11)break;const tx=await this.client.getTransaction({hash});if(!same(tx.from,this.p.address)||!tx.to)continue;
    if(next===7&&history.find(r=>r.index===6)?.orderId!==undefined){
     const creation=history.find(r=>r.index===6),refund=encodeFunctionData({abi:ABI.escrow,functionName:'refund',args:[BigInt(creation.orderId)]});
-    if(same(tx.to,this.p.escrow)&&same(tx.input,refund)){const r={index:7,recovery:'expired-refund',hash,to:tx.to,data:tx.input,state:'pending'};if(await this.verifyRecord(r,history)){history.push(r);break;}}
+    if(same(tx.to,this.p.escrow)&&same(tx.input,refund)){const r={index:7,recovery:'expired-refund',hash,to:tx.to,data:tx.input,nonce:String(tx.nonce),state:'pending'};if(await this.verifyRecord(r,history)){history.push(r);break;}}
    }
    let deadline;try{if(STEPS[next].kind==='create'){const d=decodeFunctionData({abi:ABI.escrow,data:tx.input});if(d.functionName!=='createOrder')continue;deadline=String(d.args[1]);}
     const intent=transactionIntent(this.config,this.p,next,history,deadline);if(!same(tx.to,intent.to)||!same(tx.input,intent.data))continue;
    }catch{continue;}
-   const record={index:next,hash,to:tx.to,data:tx.input,...(deadline?{deadline}:{}),state:'pending'};
+   const record={index:next,hash,to:tx.to,data:tx.input,nonce:String(tx.nonce),...(deadline?{deadline}:{}),state:'pending'};
    if(await this.verifyRecord(record,history)){history.push(record);next++;}
   }
   // Keep unresolved requests: absence from successful logs does not prove non-broadcast.
-  const unresolved=this.records.filter(r=>['requesting','pending'].includes(r.state)&&!history.some(h=>h.hash&&h.hash===r.hash));
+  const unresolved=unresolvedRequests(this.records,history);
   this.records=[...history,...unresolved];this.save();return this.refresh();
  }
  async refundExpired(){
@@ -176,7 +182,7 @@ export class Lab {
    const creation=this.records.find(r=>r.index===6&&r.state==='confirmed'),data=encodeFunctionData({abi:ABI.escrow,functionName:'refund',args:[BigInt(creation.orderId)]});
    const quote=await this.client.estimateFeesPerGas();check(quote.maxFeePerGas!=null&&quote.maxFeePerGas<=60000000000n,'現在の手数料が上限を超えています。');
    const simulation={account:this.p.address,to:this.p.escrow,data,value:0n,gas:300000n,maxFeePerGas:60000000000n,maxPriorityFeePerGas:50000000000n};await this.client.call(simulation);const gas=((await this.client.estimateGas(simulation))*120n+99n)/100n;check(gas<=300000n&&view.state.pol>=gas*60000000000n,'ガス上限またはPOL残高を確認してください。');
-   await this.guard(true);const record={index:7,recovery:'expired-refund',to:this.p.escrow,data,state:'requesting',requestedAt:new Date().toISOString()};this.records.push(record);this.save();
+   await this.guard(true);const record={index:7,recovery:'expired-refund',to:this.p.escrow,data,state:'requesting',requestedAt:new Date().toISOString(),nonceBefore:await this.client.getTransactionCount({address:this.p.address,blockTag:'pending'})};this.records.push(record);this.save();
    try{record.hash=await this.provider.request({method:'eth_sendTransaction',params:[{from:this.p.address,to:this.p.escrow,data,value:'0x0',chainId:'0x13882',gas:toHex(gas),maxFeePerGas:toHex(60000000000n),maxPriorityFeePerGas:toHex(50000000000n)}]});record.state='pending';this.save();return record.hash;}catch(e){if(e?.code===4001){this.records.splice(this.records.indexOf(record),1);this.save();}throw e;}
   }finally{this.busy=false;}
  }

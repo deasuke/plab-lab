@@ -1,5 +1,5 @@
 import {test}from 'node:test';import assert from 'node:assert/strict';
-import {selectParticipant,checkStage,transactionIntent,UNIT,Lab}from '../src/lab.js';
+import {selectParticipant,checkStage,transactionIntent,UNIT,Lab,unresolvedRequests}from '../src/lab.js';
 const P='0x1111111111111111111111111111111111111111',E='0x2222222222222222222222222222222222222222',V='0x3333333333333333333333333333333333333333',B='0x4444444444444444444444444444444444444444';
 const cfg={chainId:80002,token:{address:P},vault:V,recipientB:B,participants:[{id:'pilot-001',address:P,status:'ready',escrow:E,escrowCodeHash:'0x1234',startBlock:1}]},p=cfg.participants[0];
 test('unregistered, wrong-chain and unprepared participants cannot operate',()=>{
@@ -22,4 +22,12 @@ test('reused Escrow keeps previous orders separate from this run',()=>{
  const state={deposit:0n,allowVault:0n,allowEscrow:0n,locked:0n,escrowBalance:0n,allowSplitter:0n,nextOrderId:2n,vaultTotal:0n,vaultBalance:0n};
  assert.doesNotThrow(()=>checkStage(state,0,2));assert.throws(()=>checkStage(state,0));
  assert.doesNotThrow(()=>checkStage({...state,nextOrderId:4n},11,2));
+});
+
+test('lost wallet response resolves only with verified matching nonce, action and payload',()=>{
+ const req={index:8,state:'requesting',nonceBefore:19,to:P,data:'0x095ea7b3'};
+ const confirmed={...req,state:'confirmed',nonce:'19',hash:'0xabc'};
+ assert.equal(unresolvedRequests([req],[confirmed]).length,0);
+ for(const change of [{nonce:'20'},{index:5},{to:E},{data:'0x1234'},{state:'pending'},{recovery:'expired-refund'}])assert.equal(unresolvedRequests([req],[{...confirmed,...change}]).length,1);
+ assert.equal(unresolvedRequests([{...req,nonceBefore:undefined}],[confirmed]).length,1);
 });

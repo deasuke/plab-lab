@@ -35,7 +35,7 @@ function draw(view){
  else if(view.waitSeconds>0n)message(`返金可能になるまで、チェーン時刻で約${view.waitSeconds}秒です。時間が来たら「状態を更新」を押してください。この画面を閉じても後から再開できます。`);
  else message(demo?'見本モードです。説明用の状態を切り替えています。':`次は「${step.label}」です。ボタンを押すとウォレットで確認します。`);
 }
-async function refresh(){if(demo){drawDemo();return;}if(!lab)return;lock();message('チェーン上の記録を確認しています…');try{draw(await lab.refresh());renderRecords();}catch(e){message(friendly(e),true);}}
+async function refresh(){if(demo){drawDemo();return;}if(!lab)return;lock();message('チェーン上の記録を確認しています…');try{let view=await lab.refresh();if(!lab.busy&&lab.records.some(r=>r.state==='requesting')){message('確定済み取引と送信記録を照合しています…');view=await lab.recover();}draw(view);renderRecords();}catch(e){message(friendly(e),true);}}
 function storageKey(p){return `plab-mobile-v1:${config.chainId}:${p.address.toLowerCase()}:${p.escrow.toLowerCase()}:${p.id}`;}
 async function afterConnect(){
  demo=false;$('demo-note').hidden=true;$('demo').hidden=false;account=(await provider.request({method:'eth_accounts'}))[0];if(!account)throw Error('ウォレットのアカウントを選んでください。');
@@ -65,6 +65,7 @@ $('send').onclick=async()=>{
  }catch(e){message(friendly(e),true);renderRecords();}
 };
 $('recover').onclick=async()=>{if(!lab||lab.busy)return;lock();message('参加開始後のイベントから進行を復元しています…');try{draw(await lab.recover());renderRecords();}catch(e){message('復元を完了できませんでした。既存の記録は保持しています。'+friendly(e),true);}};
+$('recover-results').onclick=$('recover').onclick;
 $('copy-address').onclick=async()=>{try{await navigator.clipboard.writeText(getAddress(account));message('公開アドレスをコピーしました。主催者へお伝えください。');}catch{message('上に表示されている公開アドレスを選択してコピーしてください。');}};
 $('copy-results').onclick=async()=>{try{await navigator.clipboard.writeText(JSON.stringify(lab.result(),null,2));message('取引結果をコピーしました。');}catch{message('「結果をダウンロード」をご利用ください。');}};
 $('export').onclick=()=>{if(!lab)return;const a=document.createElement('a'),url=URL.createObjectURL(new Blob([JSON.stringify(lab.result(),null,2)],{type:'application/json'}));a.href=url;a.download='plab-results.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
