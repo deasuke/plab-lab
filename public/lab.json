@@ -32,6 +32,21 @@
       "startBlock": "50631110",
       "status": "ready",
       "mode": "self-pretrial-reuse"
+    },
+    {
+      "id": "participant-001",
+      "address": "0xfbEC9dD6e9aA7643046D63bEec6a5a72A189537a",
+      "escrow": "0xcA93561C9b4058A68CC453dF09b563D514A24575",
+      "escrowCodeHash": "0x79670482370f8a1508b0a7187db4c77469a6b622312809be31eb708ede888ab5",
+      "escrowDeploymentTxHash": "0xb6e1de8c99db7a1bfeb75f452dff1eec9d366ebb4d7e044ad1a7cd697eea9dee",
+      "startBlock": "50648165",
+      "orderBase": "0",
+      "fundingTransactions": [
+        "0x196c8ff9d695bfceaa464ddb267273d2a1266bea42a4ebab1099f7ac2679f381",
+        "0x4dca34a473e75f52ab6bc0928bf72d10769ea27e2e7fd39facb7d1a1f898b75b"
+      ],
+      "status": "ready",
+      "mode": "participant"
     }
   ],
   "maxParticipants": 5,

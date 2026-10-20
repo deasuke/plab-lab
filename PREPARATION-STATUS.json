@@ -1,9 +1,9 @@
 {
   "checkedAt": "2026-10-20",
-  "status": "five-invitations-published-awaiting-wallet-selection",
+  "status": "participant-001-ready-awaiting-site-update",
   "chainId": 80002,
-  "participants": 1,
-  "newAmoyTransactionsSent": 0,
+  "participants": 2,
+  "newAmoyTransactionsSent": 3,
   "sitePublished": true,
   "repositoryCreated": true,
   "policyTests": 9,
@@ -11,16 +11,14 @@
   "productionBuild": "passed",
   "mobileBrowserPreview": "390px; 11 demo actions passed",
   "remaining": [
-    "participants select MetaMask accounts on the day",
-    "explicit deployment/funding approval for actual recipients",
-    "local D keystore unlock on Mac",
-    "funding verification and participant manifest publication",
-    "participant mobile/iOS trials"
+    "participant-001 trial",
+    "other participants choose wallets on the day",
+    "per-participant deployment/funding approval and preparation"
   ],
   "siteUrl": "https://deasuke.github.io/plab-lab/",
   "deploymentRun": "https://github.com/deasuke/plab-lab/actions/runs/39357426096",
   "maxParticipants": 5,
-  "registeredExternalParticipants": 0,
+  "registeredExternalParticipants": 1,
   "invitationSlots": 5,
   "localGroupIntegration": "55 interleaved transactions across five wallets, isolated Vault/Escrow/history: passed",
   "operatorTests": 3
