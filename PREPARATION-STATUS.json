@@ -1,6 +1,6 @@
 {
   "checkedAt": "2026-10-20",
-  "status": "five-participant-join-prepared",
+  "status": "five-invitations-published-awaiting-wallet-selection",
   "chainId": 80002,
   "participants": 1,
   "newAmoyTransactionsSent": 0,
@@ -18,7 +18,7 @@
     "participant mobile/iOS trials"
   ],
   "siteUrl": "https://deasuke.github.io/plab-lab/",
-  "deploymentRun": "https://github.com/deasuke/plab-lab/actions/runs/39343946285",
+  "deploymentRun": "https://github.com/deasuke/plab-lab/actions/runs/39357426096",
   "maxParticipants": 5,
   "registeredExternalParticipants": 0,
   "invitationSlots": 5,
