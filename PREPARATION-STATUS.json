@@ -1,6 +1,6 @@
 {
   "checkedAt": "2026-10-20",
-  "status": "participant-001-ready-awaiting-site-update",
+  "status": "participant-001-ready",
   "chainId": 80002,
   "participants": 2,
   "newAmoyTransactionsSent": 3,
@@ -16,7 +16,7 @@
     "per-participant deployment/funding approval and preparation"
   ],
   "siteUrl": "https://deasuke.github.io/plab-lab/",
-  "deploymentRun": "https://github.com/deasuke/plab-lab/actions/runs/39357426096",
+  "deploymentRun": "https://github.com/deasuke/plab-lab/actions/runs/39370522329",
   "maxParticipants": 5,
   "registeredExternalParticipants": 1,
   "invitationSlots": 5,
