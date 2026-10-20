@@ -2,7 +2,8 @@ import './style.css';
 import {createPublicClient,http,fallback,formatEther,getAddress}from 'viem';
 import {polygonAmoy}from 'viem/chains';
 import {Lab,STEPS,selectParticipant}from './lab.js';
-const $=id=>document.getElementById(id),config=await fetch('./lab.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('公開設定を取得できません。');return r.json();});
+import {joinRequest,sameDeployment}from './registration.js';
+const $=id=>document.getElementById(id);let config=await fetch('./lab.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('公開設定を取得できません。');return r.json();});
 const client=createPublicClient({chain:polygonAmoy,transport:fallback(config.rpcUrls.map(url=>http(url,{retryCount:1,timeout:15000})))});
 let provider,connector,account,lab,key,demo=false,poll;
 const message=(text,error=false)=>{$('status').textContent=text;$('status').classList.toggle('error',error);};
@@ -37,12 +38,13 @@ function draw(view){
 }
 async function refresh(){if(demo){drawDemo();return;}if(!lab)return;lock();message('チェーン上の記録を確認しています…');try{let view=await lab.refresh();if(!lab.busy&&lab.records.some(r=>r.state==='requesting')){message('確定済み取引と送信記録を照合しています…');view=await lab.recover();}draw(view);renderRecords();}catch(e){message(friendly(e),true);}}
 function storageKey(p){return `plab-mobile-v1:${config.chainId}:${p.address.toLowerCase()}:${p.escrow.toLowerCase()}:${p.id}`;}
+async function reloadRegistry(){const latest=await fetch('./lab.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('準備状況を取得できません。');return r.json();});if(!sameDeployment(config,latest))throw Error('契約設定が変更されています。画面を再読み込みしてください。');config=latest;}
 async function afterConnect(){
  demo=false;$('demo-note').hidden=true;$('demo').hidden=false;account=(await provider.request({method:'eth_accounts'}))[0];if(!account)throw Error('ウォレットのアカウントを選んでください。');
- $('account').textContent=getAddress(account);$('account').hidden=false;$('disconnect').hidden=false;$('connection-badge').textContent='接続済み';$('connect').textContent='接続アカウントを再確認';
+ $('account').textContent=getAddress(account);$('account').hidden=false;$('disconnect').hidden=false;$('connection-badge').textContent='接続済み';const invite=new URLSearchParams(location.search).get('invite');$('invitation-label').textContent=invite?`参加番号：${invite}`:'';$('invitation-label').hidden=!invite;$('connect').textContent='接続アカウントを再確認';
  const chain=Number(BigInt(await provider.request({method:'eth_chainId'})));$('switch').hidden=chain===80002;
  try{const p=selectParticipant(config,account,new URLSearchParams(location.search).get('invite'));key=storageKey(p);lab=new Lab({config,participant:p,client,provider,records:stored(),persist});$('registration').hidden=true;$('recover').hidden=false;await refresh();}
- catch(e){lab=null;lock();$('action-box').hidden=true;$('dashboard').hidden=true;$('registration').hidden=false;message(friendly(e),true);}
+ catch(e){lab=null;lock();$('action-box').hidden=true;$('dashboard').hidden=true;$('results-panel').hidden=true;$('registration').hidden=false;$('copy-join').hidden=true;try{joinRequest(config,account,invite);$('copy-join').hidden=false;message('接続できました。「参加登録情報をコピー」で実験者へ登録情報を渡してください。準備完了後に「準備状況を再確認」を押します。');}catch{message(friendly(e),true);}}
 }
 $('connect').onclick=async()=>{
  lock();message('MetaMaskへの接続を確認しています。ウォレットアプリの画面をご確認ください。');
@@ -66,6 +68,8 @@ $('send').onclick=async()=>{
 };
 $('recover').onclick=async()=>{if(!lab||lab.busy)return;lock();message('参加開始後のイベントから進行を復元しています…');try{draw(await lab.recover());renderRecords();}catch(e){message('復元を完了できませんでした。既存の記録は保持しています。'+friendly(e),true);}};
 $('recover-results').onclick=$('recover').onclick;
+$('copy-join').onclick=async()=>{try{if(!provider)throw Error('MetaMaskへ接続してください。');const current=(await provider.request({method:'eth_accounts'}))[0];if(Number(BigInt(await provider.request({method:'eth_chainId'})))!==80002)throw Error('先にAmoyへ切り替えてください。');if(current?.toLowerCase()!==account?.toLowerCase())throw Error('アカウントが変わりました。接続アカウントを再確認してください。');const request=joinRequest(config,current,new URLSearchParams(location.search).get('invite'));await navigator.clipboard.writeText(JSON.stringify(request,null,2));message('参加登録情報をコピーしました。実験者へ貼り付けてお渡しください。資金の移動や署名はしていません。');}catch(e){message(friendly(e),true);}};
+$('registration-refresh').onclick=async()=>{try{await reloadRegistry();await afterConnect();}catch(e){message(friendly(e),true);}};
 $('copy-address').onclick=async()=>{try{await navigator.clipboard.writeText(getAddress(account));message('公開アドレスをコピーしました。主催者へお伝えください。');}catch{message('上に表示されている公開アドレスを選択してコピーしてください。');}};
 $('copy-results').onclick=async()=>{try{await navigator.clipboard.writeText(JSON.stringify(lab.result(),null,2));message('取引結果をコピーしました。');}catch{message('「結果をダウンロード」をご利用ください。');}};
 $('export').onclick=()=>{if(!lab)return;const a=document.createElement('a'),url=URL.createObjectURL(new Blob([JSON.stringify(lab.result(),null,2)],{type:'application/json'}));a.href=url;a.download='plab-results.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};

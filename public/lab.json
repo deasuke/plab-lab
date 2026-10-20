@@ -33,5 +33,28 @@
       "status": "ready",
       "mode": "self-pretrial-reuse"
     }
+  ],
+  "maxParticipants": 5,
+  "invitations": [
+    {
+      "id": "participant-001",
+      "status": "open"
+    },
+    {
+      "id": "participant-002",
+      "status": "open"
+    },
+    {
+      "id": "participant-003",
+      "status": "open"
+    },
+    {
+      "id": "participant-004",
+      "status": "open"
+    },
+    {
+      "id": "participant-005",
+      "status": "open"
+    }
   ]
 }

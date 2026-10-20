@@ -1,15 +1,17 @@
 # PLAB 実験室（携帯電話向け）
 
+最大5人が当日MetaMaskでアカウントを選んで参加する実験サイトです。
+
 Polygon Amoyのテスト用PLABで、単純送金、Vault（本人別の預入・引出）、Escrow（期限付きの資金保留・決済・返金）を体験する静的サイトです。Splitterは決済額をBへ70%、Cへ30%に分配します。
 
-[予備試験を開く](https://deasuke.github.io/plab-lab/?invite=self-a-20261020)
+[参加者用の招待リンク](INVITATIONS.md) ／ [参加者の操作手順](PARTICIPANT.md)
 
 ## 現在の準備状況
 
 - 画面、MetaMask接続処理、11操作の順序制御、取引検証、結果JSON出力を実装。
 - 既存PLAB・Vault・Splitterを利用。参加者ごとに専用Escrowを用意する設計。
-- ご自身の予備試験用にAを登録。実験サイトの公開承認を受領。新規デプロイ・資金配布は未実行。
-- 初期対応はMetaMask。他のウォレットアプリは未対応。iOS/Android実機での接続・署名・アプリ往復確認は残っています。
+- Android・Chrome・MetaMaskでAの予備試験11操作が完了。記録は維持し、参加者5人分のアドレス未指定の招待枠を追加。参加者向けの新規デプロイ・資金配布は未実行。
+- 初期対応はMetaMask。他のウォレットアプリは未対応。Androidの予備試験済み。iOSでの実操作確認は本試験で行います。
 
 ## 実験の流れ
 
@@ -27,7 +29,7 @@ Polygon Amoyのテスト用PLABで、単純送金、Vault（本人別の預入�
 ## 文書
 
 - [ご自身の携帯で行う予備試験](PRETRIAL.md)
-- [主催者の準備・公開手順](OPERATOR.md)
+- [実験者の当日準備・資金見積もり](OPERATOR.md)
 - [参加者の操作手順](PARTICIPANT.md)
 - [検証結果と残る確認](VALIDATION.md)
 
