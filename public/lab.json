@@ -62,6 +62,21 @@
       ],
       "status": "ready",
       "mode": "participant"
+    },
+    {
+      "id": "participant-003",
+      "address": "0xfb7a4f68c503750c49B37de90cf8a36f8fF9938D",
+      "escrow": "0x0Ed9784FFfC6DbD12A3E5CC61E3f11B158c28AdE",
+      "escrowCodeHash": "0xb0a3a75b1b827ca04a27a9a9dc38f532b54142b66c00249347fc552270dbe7a3",
+      "escrowDeploymentTxHash": "0x195877450b3da9388d4ebfe948adeaf78f7eb3b08fffc9332a3b35ad5928c5be",
+      "startBlock": "50817452",
+      "orderBase": "0",
+      "fundingTransactions": [
+        "0x071799e338bc42a8314266af17e8bc9c1b11dad6900f6ace1b1baad2431da2bc",
+        "0xce4199f3f596136f40985c4beb9215b177b521dfafd1481fd5856773614e9881"
+      ],
+      "status": "ready",
+      "mode": "participant"
     }
   ],
   "maxParticipants": 5,
