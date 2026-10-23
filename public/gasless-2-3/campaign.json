@@ -1,0 +1,13 @@
+{
+  "id": "gasless-2-3-20261026",
+  "stage": "2-3",
+  "chainId": 80002,
+  "token": "0xf545888d93f7f71dbc0074fbeb92c97aa47322f4",
+  "contract": "0x8a5fd5f58f43c78d0300e51cc26985e893026f2a",
+  "G": "0x9954355A269a2602890F842e4E1Db355C124beA9",
+  "B": "0x5a97648467f5CC5c9b289dE41DE3171F6dAC0572",
+  "C": "0x1861A94D1880C2e29C8F0648499e0303765f4Cfc",
+  "validFrom": 1792940400,
+  "validUntil": 1793026800,
+  "maxParticipants": 5
+}
