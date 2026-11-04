@@ -152,8 +152,18 @@ export class Lab {
  }
  async recover(){
   check(!this.busy,'署名要求中は復元できません。');await this.guard();
-  const start=BigInt(this.p.startBlock),end=await this.client.getBlockNumber();check(end-start<=150000n,'照会期間が長いため主催者による復元が必要です。');
-  const hashes=new Map();
+  const originalStart=BigInt(this.p.startBlock),end=await this.client.getBlockNumber(),checkpoint=this.p.recoveryCheckpoint;
+  let start=originalStart;const hashes=new Map();
+  if(checkpoint){
+   check(checkpoint.version===1&&/^\d+$/.test(String(checkpoint.verifiedThroughBlock))&&Array.isArray(checkpoint.transactionHashes)&&checkpoint.transactionHashes.length>0&&checkpoint.transactionHashes.length<=11,'主催者の復元情報が不正です。');
+   const through=BigInt(checkpoint.verifiedThroughBlock),seeds=checkpoint.transactionHashes;
+   check(through>=originalStart&&through<=end&&new Set(seeds.map(h=>String(h).toLowerCase())).size===seeds.length&&seeds.every(h=>typeof h==='string'&&/^0x[\da-f]{64}$/i.test(h)),'主催者の復元範囲または取引ハッシュが不正です。');
+   // Published hashes are hints only: the existing verifier checks sender, calldata,
+   // success receipt and expected events for every recovered operation below.
+   for(const hash of seeds){const receipt=await this.client.getTransactionReceipt({hash});check(receipt.status==='success'&&receipt.blockNumber>=originalStart&&receipt.blockNumber<=through,'主催者の復元取引を確認できません。');hashes.set(hash,{block:receipt.blockNumber,index:receipt.transactionIndex});}
+   start=through+1n;
+  }
+  check(end-start<=150000n,'照会期間が長いため主催者による復元が必要です。');
   for(let from=start;from<=end;from+=1000n){
    const logs=await this.client.getLogs({address:[this.config.token.address,this.config.vault,this.p.escrow],fromBlock:from,toBlock:from+999n<end?from+999n:end});
    for(const l of logs)if(!l.removed)hashes.set(l.transactionHash,{block:l.blockNumber,index:l.transactionIndex});
@@ -171,6 +181,7 @@ export class Lab {
    const record={index:next,hash,to:tx.to,data:tx.input,nonce:String(tx.nonce),...(deadline?{deadline}:{}),state:'pending'};
    if(await this.verifyRecord(record,history)){history.push(record);next++;}
   }
+  if(checkpoint)check(checkpoint.transactionHashes.every(hash=>history.some(r=>same(r.hash,hash)&&r.state==='confirmed')),'主催者の復元取引内容が予定と一致しません。');
   // Keep unresolved requests: absence from successful logs does not prove non-broadcast.
   const unresolved=unresolvedRequests(this.records,history);
   this.records=[...history,...unresolved];this.save();return this.refresh();

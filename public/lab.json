@@ -61,7 +61,15 @@
         "0x95eb291e9b988dbf0cea8011684d86ee9ad5b7026f051942de98cc3ab82905d1"
       ],
       "status": "ready",
-      "mode": "participant"
+      "mode": "participant",
+      "recoveryCheckpoint": {
+        "version": 1,
+        "verifiedThroughBlock": "51975024",
+        "transactionHashes": [
+          "0xd7d827d581993293614ba04922c2b88599790e8a6bd2f19937b3e2575af5aa7a",
+          "0xa536c5f5e5cdce19d57171eeda108d328c13e10db9e97e81dc6be06b23d7789e"
+        ]
+      }
     },
     {
       "id": "participant-003",
