@@ -1,3 +1,4 @@
+import {authorizedAccount} from './account-session.js';
 import { encodeFunctionData, decodeFunctionData, decodeEventLog, getAddress, keccak256, toHex } from 'viem';
 import { ABI } from './abi.js';
 export const UNIT=10n**18n;
@@ -54,7 +55,7 @@ export function unresolvedRequests(records,history){
  ));
 }
 export class Lab {
- constructor({config,participant,client,provider,records=[],persist=()=>{}}){Object.assign(this,{config,p:participant,client,provider,records,persist});this.busy=false;}
+ constructor({config,participant,client,provider,records=[],persist=()=>{},onStatus=()=>{}}){Object.assign(this,{config,p:participant,client,provider,records,persist,onStatus});this.busy=false;}
  save(){this.persist(this.records);}
  next(){return this.records.filter(r=>r.state==='confirmed'&&!r.recovery).length;}
  pending(){return this.records.some(r=>r.state==='pending'||r.state==='requesting');}
@@ -72,7 +73,7 @@ export class Lab {
   if(signing){
    check(this.provider,'ウォレットに接続してください。');
    check(Number(BigInt(await this.provider.request({method:'eth_chainId'})))===80002,'ウォレットをAmoyへ切り替えてください。');
-   check(same((await this.provider.request({method:'eth_accounts'}))[0],p.address),'登録したテスト用アカウントへ戻してください。');
+   check(Boolean(authorizedAccount(await this.provider.request({method:'eth_accounts'}),p.address)),'登録したテスト用アカウントへ戻してください。');
   }
  }
  async snapshot(){
@@ -139,12 +140,14 @@ export class Lab {
    const step=STEPS[index],deadline=step.kind==='create'?String(view.state.timestamp+(index===6?86400n:180n)):undefined;
    const intent=transactionIntent(this.config,this.p,index,this.records,deadline),gasCap=step.group==='単純送金'?100000n:step.group==='Vault'?200000n:300000n;
    if(['transfer','deposit','create'].includes(step.kind))check(view.state.balance>=BigInt(step.amount)*UNIT,'PLAB残高が不足しています。');
+   this.onStatus('チェーン上で実行可否とガス代を確認しています。まだMetaMaskへ署名を要求していません。');
    const fees=await this.client.estimateFeesPerGas();check(fees.maxFeePerGas!=null&&fees.maxFeePerGas<=60000000000n,'現在の推奨手数料が上限60 Gweiを超えています。時間を置いてください。');
    const simulation={account:this.p.address,...intent,value:0n,gas:gasCap,maxFeePerGas:60000000000n,maxPriorityFeePerGas:50000000000n};
    await this.client.call(simulation);const estimate=await this.client.estimateGas(simulation),gas=(estimate*120n+99n)/100n;check(gas<=gasCap,'ガス見積もりが上限を超えました。');check(view.state.pol>=gas*60000000000n,'手数料用のテストPOLが不足しています。');
    await this.guard(true);
    const record={index,to:intent.to,data:intent.data,...(deadline?{deadline}:{}),state:'requesting',requestedAt:new Date().toISOString(),nonceBefore:await this.client.getTransactionCount({address:this.p.address,blockTag:'pending'})};this.records.push(record);this.save();
    try{
+    this.onStatus('MetaMaskへ署名を要求しました。MetaMaskアプリを開き、登録アカウントと内容を確認してください。');
     record.hash=await this.provider.request({method:'eth_sendTransaction',params:[{from:this.p.address,...intent,value:'0x0',chainId:'0x13882',gas:toHex(gas),maxFeePerGas:toHex(60000000000n),maxPriorityFeePerGas:toHex(50000000000n)}]});record.state='pending';this.save();
    }catch(e){if(e?.code===4001||e?.code===-32602){this.records.splice(this.records.indexOf(record),1);this.save();}throw e;}
    return record.hash;

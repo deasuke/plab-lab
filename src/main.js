@@ -1,17 +1,24 @@
 import './style.css';
+import {connectionAccount,authorizedAccount,reselectAccount}from './account-session.js';
 import {createPublicClient,http,fallback,formatEther,getAddress}from 'viem';
 import {polygonAmoy}from 'viem/chains';
 import {Lab,STEPS,selectParticipant}from './lab.js';
 import {joinRequest,sameDeployment}from './registration.js';
 const $=id=>document.getElementById(id);let config=await fetch('./lab.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('公開設定を取得できません。');return r.json();});
 const client=createPublicClient({chain:polygonAmoy,transport:fallback(config.rpcUrls.map(url=>http(url,{retryCount:1,timeout:15000})))});
-let provider,connector,account,lab,key,demo=false,poll;
+let provider,connector,account,lab,key,demo=false,poll,connectedChain,useConnector=false;const boundProviders=new WeakSet();
 const message=(text,error=false)=>{$('status').textContent=text;$('status').classList.toggle('error',error);};
 const friendly=e=>{if(e?.code===4001)return 'ウォレットでキャンセルされました。資金は移動していません。';return String(e?.shortMessage||e?.message||e).replace(/https?:\/\/[^\s"'<>]+/g,'[接続先]').slice(0,900);};
 const amount=n=>Number(formatEther(n)).toLocaleString('ja-JP',{maximumFractionDigits:6});
 function stored(){try{return JSON.parse(localStorage.getItem(key)||'[]');}catch{throw Error('保存記録を読み込めません。主催者へご連絡ください。');}}
 function persist(records){localStorage.setItem(key,JSON.stringify(records));renderRecords();}
 const lock=()=>{$('send').disabled=true;};
+const invitedParticipant=()=>config.participants.find(p=>p.id===new URLSearchParams(location.search).get('invite'));
+function showConnectionCheck(){
+ const expected=invitedParticipant()?.address;
+ $('connection-check').textContent=expected?`この招待の登録アドレス：${getAddress(expected)}\n${account?(account.toLowerCase()===expected.toLowerCase()?'接続アカウント：登録アドレスと一致':'接続アカウント：不一致。接続アカウントを選び直してください。'):'接続後に一致を確認します。'}${connectedChain!=null?`\n接続ネットワーク：${connectedChain===80002?'Amoy（80002）':`Chain ID ${connectedChain}。Amoyへの切替が必要です。`}`:''}`:'接続後、サイトに許可された公開アドレスを表示します。';
+}
+showConnectionCheck();
 function renderRecords(){
  $('results').replaceChildren();if(!lab)return;
  $('results-panel').hidden=lab.records.length===0;
@@ -30,7 +37,7 @@ function draw(view){
  $('action-effect').textContent=approval?'利用上限は今回の数量のみ':step.kind==='transfer'?'あなた → 受取先B':step.kind==='deposit'?'あなた → 共用Vault':step.kind==='withdraw'?'共用Vault → あなた':step.kind==='create'?'あなた → 専用Escrow':step.kind==='release'?'専用Escrow → Bへ70・Cへ30 PLAB':'専用Escrow → あなた';
  $('action-cap').textContent=step.group==='単純送金'?'0.006':step.group==='Vault'?'0.012':'0.018';
  $('send').textContent=demo?'見本で次の状態を見る':`${view.index+1}. ${step.label}`;
- $('send').disabled=!demo&&(view.pending||view.waitSeconds>0n||lab?.busy);
+ $('send').disabled=!demo&&(view.pending||view.waitSeconds>0n||lab?.busy||connectedChain!==80002);
  if(view.pending)message('送信状況を確認しています。ウォレットへ署名を要求した後に通信が途切れた場合も、操作ボタンを押し直さず「状態を更新」または「進行を復元」を使ってください。');
  else if(view.expired){$('action-title').textContent='期限切れの100 PLABを返金';$('send').textContent='100 PLABを自分のアカウントへ返金';$('action-description').textContent='元の注文を返金して資金を戻します。決済実験の完了には数えず、次の実施方法を主催者と確認します。';$('action-effect').textContent='専用Escrow → あなた';message('100 PLAB注文の期限を過ぎています。決済の代わりに返金できます。',true);}
  else if(view.waitSeconds>0n)message(`返金可能になるまで、チェーン時刻で約${view.waitSeconds}秒です。時間が来たら「状態を更新」を押してください。この画面を閉じても後から再開できます。`);
@@ -40,24 +47,29 @@ async function refresh(){if(demo){drawDemo();return;}if(!lab)return;lock();messa
 function storageKey(p){return `plab-mobile-v1:${config.chainId}:${p.address.toLowerCase()}:${p.escrow.toLowerCase()}:${p.id}`;}
 async function reloadRegistry(){const latest=await fetch('./lab.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('準備状況を取得できません。');return r.json();});if(!sameDeployment(config,latest))throw Error('契約設定が変更されています。画面を再読み込みしてください。');config=latest;}
 async function afterConnect(){
- demo=false;$('demo-note').hidden=true;$('demo').hidden=false;account=(await provider.request({method:'eth_accounts'}))[0];if(!account)throw Error('ウォレットのアカウントを選んでください。');
+ demo=false;$('demo-note').hidden=true;$('demo').hidden=false;account=connectionAccount(await provider.request({method:'eth_accounts'}),invitedParticipant()?.address);if(!account)throw Error('ウォレットのアカウントを選んでください。');
  $('account').textContent=getAddress(account);$('account').hidden=false;$('disconnect').hidden=false;$('connection-badge').textContent='接続済み';const invite=new URLSearchParams(location.search).get('invite');$('invitation-label').textContent=invite?`参加番号：${invite}`:'';$('invitation-label').hidden=!invite;$('connect').textContent='接続アカウントを再確認';
- const chain=Number(BigInt(await provider.request({method:'eth_chainId'})));$('switch').hidden=chain===80002;
- try{const p=selectParticipant(config,account,new URLSearchParams(location.search).get('invite'));key=storageKey(p);lab=new Lab({config,participant:p,client,provider,records:stored(),persist});$('registration').hidden=true;$('recover').hidden=false;await refresh();}
+ const chain=Number(BigInt(await provider.request({method:'eth_chainId'})));connectedChain=chain;$('switch').hidden=chain===80002;$('reselect').hidden=false;showConnectionCheck();if(invitedParticipant()&&account.toLowerCase()!==invitedParticipant().address.toLowerCase())$('connection-badge').textContent='アカウント不一致';
+ try{const p=selectParticipant(config,account,new URLSearchParams(location.search).get('invite'));key=storageKey(p);lab=new Lab({config,participant:p,client,provider,records:stored(),persist,onStatus:message});$('registration').hidden=true;$('recover').hidden=false;await refresh();}
  catch(e){lab=null;lock();$('action-box').hidden=true;$('dashboard').hidden=true;$('results-panel').hidden=true;$('registration').hidden=false;$('copy-join').hidden=true;try{joinRequest(config,account,invite);$('copy-join').hidden=false;message('接続できました。「参加登録情報をコピー」で実験者へ登録情報を渡してください。準備完了後に「準備状況を再確認」を押します。');}catch{message(friendly(e),true);}}
 }
 $('connect').onclick=async()=>{
  lock();message('MetaMaskへの接続を確認しています。ウォレットアプリの画面をご確認ください。');
  try{
   // The injected provider is used only where a wallet actually supplies one.
-  if(window.ethereum?.isMetaMask){provider=window.ethereum;await provider.request({method:'eth_requestAccounts'});}
-  else{const {createEVMClient}=await import('@metamask/connect-evm');connector??=await createEVMClient({dapp:{name:'PLAB 実験室',url:location.origin+location.pathname,iconUrl:new URL('./icon.svg',location.href).href},api:{supportedNetworks:{'0x13882':config.rpcUrls[0]}}});await connector.connect({chainIds:['0x13882']});provider=connector.getProvider();}
-  for(const event of ['accountsChanged','chainChanged'])provider.on?.(event,()=>{lock();lab=null;$('action-box').hidden=true;message('接続が変更されました。「接続アカウントを再確認」を押してください。');});
+  if(window.ethereum?.isMetaMask){useConnector=false;provider=window.ethereum;await provider.request({method:'eth_requestAccounts'});}
+  else{useConnector=true;const {createEVMClient}=await import('@metamask/connect-evm');connector??=await createEVMClient({dapp:{name:'PLAB 実験室',url:location.origin+location.pathname,iconUrl:new URL('./icon.svg',location.href).href},api:{supportedNetworks:{'0x13882':config.rpcUrls[0]}}});await connector.connect({chainIds:['0x13882']});provider=connector.getProvider();}
+  if(!boundProviders.has(provider)){boundProviders.add(provider);for(const event of ['accountsChanged','chainChanged'])provider.on?.(event,()=>{lock();lab=null;$('action-box').hidden=true;$('account').hidden=true;$('connection-badge').textContent='再確認が必要';$('connection-check').textContent='接続が変更されました。「接続アカウントを再確認」を押してください。';message('接続が変更されました。「接続アカウントを再確認」を押してください。');});}
   await afterConnect();
  }catch(e){message(friendly(e),true);}
 };
+$('reselect').onclick=async()=>{
+ if(lab?.busy){message('署名要求中です。先にMetaMaskで現在の要求をご確認ください。');return;}lock();
+ try{message(`MetaMaskで接続アカウントを選び直してください。${invitedParticipant()?`登録アドレス：${invitedParticipant().address}`:''}`);await reselectAccount({connector:useConnector?connector:null,provider});if(useConnector)provider=connector.getProvider();await afterConnect();}
+ catch(e){message(friendly(e)+' アカウント選択が開かない場合は、MetaMaskのPermissions（権限）でこのサイトの接続アカウントを確認してください。',true);}
+};
 $('switch').onclick=async()=>{try{if(connector)await connector.switchChain({chainId:'0x13882',chainConfiguration:{chainId:'0x13882',chainName:'Polygon Amoy',nativeCurrency:{name:'POL',symbol:'POL',decimals:18},rpcUrls:config.rpcUrls,blockExplorerUrls:[config.explorer]}});else{try{await provider.request({method:'wallet_switchEthereumChain',params:[{chainId:'0x13882'}]});}catch(e){if(e.code!==4902)throw e;await provider.request({method:'wallet_addEthereumChain',params:[{chainId:'0x13882',chainName:'Polygon Amoy',nativeCurrency:{name:'POL',symbol:'POL',decimals:18},rpcUrls:config.rpcUrls,blockExplorerUrls:[config.explorer]}]});}}await afterConnect();}catch(e){message(friendly(e),true);}};
-$('disconnect').onclick=async()=>{try{await connector?.disconnect();}finally{provider=null;lab=null;lock();$('action-box').hidden=true;$('dashboard').hidden=true;$('connection-badge').textContent='未接続';$('account').hidden=true;$('registration').hidden=true;$('disconnect').hidden=true;message('接続を解除しました。取引の記録はこのブラウザに保持されています。');}};
+$('disconnect').onclick=async()=>{try{await connector?.disconnect();}finally{provider=null;lab=null;lock();$('action-box').hidden=true;$('dashboard').hidden=true;$('connection-badge').textContent='未接続';$('account').hidden=true;$('registration').hidden=true;$('disconnect').hidden=true;$('reselect').hidden=true;account=null;connectedChain=null;showConnectionCheck();message('接続を解除しました。取引の記録はこのブラウザに保持されています。');}};
 $('refresh').onclick=refresh;
 $('send').onclick=async()=>{
  if(demo){demoIndex=Math.min(11,demoIndex+1);drawDemo();return;}if(!lab||lab.busy)return;lock();
@@ -68,7 +80,7 @@ $('send').onclick=async()=>{
 };
 $('recover').onclick=async()=>{if(!lab||lab.busy)return;lock();message('参加開始後のイベントから進行を復元しています…');try{draw(await lab.recover());renderRecords();}catch(e){message('復元を完了できませんでした。既存の記録は保持しています。'+friendly(e),true);}};
 $('recover-results').onclick=$('recover').onclick;
-$('copy-join').onclick=async()=>{try{if(!provider)throw Error('MetaMaskへ接続してください。');const current=(await provider.request({method:'eth_accounts'}))[0];if(Number(BigInt(await provider.request({method:'eth_chainId'})))!==80002)throw Error('先にAmoyへ切り替えてください。');if(current?.toLowerCase()!==account?.toLowerCase())throw Error('アカウントが変わりました。接続アカウントを再確認してください。');const request=joinRequest(config,current,new URLSearchParams(location.search).get('invite'));await navigator.clipboard.writeText(JSON.stringify(request,null,2));message('参加登録情報をコピーしました。実験者へ貼り付けてお渡しください。資金の移動や署名はしていません。');}catch(e){message(friendly(e),true);}};
+$('copy-join').onclick=async()=>{try{if(!provider)throw Error('MetaMaskへ接続してください。');const current=authorizedAccount(await provider.request({method:'eth_accounts'}),account);if(Number(BigInt(await provider.request({method:'eth_chainId'})))!==80002)throw Error('先にAmoyへ切り替えてください。');if(current?.toLowerCase()!==account?.toLowerCase())throw Error('アカウントが変わりました。接続アカウントを再確認してください。');const request=joinRequest(config,current,new URLSearchParams(location.search).get('invite'));await navigator.clipboard.writeText(JSON.stringify(request,null,2));message('参加登録情報をコピーしました。実験者へ貼り付けてお渡しください。資金の移動や署名はしていません。');}catch(e){message(friendly(e),true);}};
 $('registration-refresh').onclick=async()=>{try{await reloadRegistry();await afterConnect();}catch(e){message(friendly(e),true);}};
 $('copy-address').onclick=async()=>{try{await navigator.clipboard.writeText(getAddress(account));message('公開アドレスをコピーしました。主催者へお伝えください。');}catch{message('上に表示されている公開アドレスを選択してコピーしてください。');}};
 $('copy-results').onclick=async()=>{try{await navigator.clipboard.writeText(JSON.stringify(lab.result(),null,2));message('取引結果をコピーしました。');}catch{message('「結果をダウンロード」をご利用ください。');}};
