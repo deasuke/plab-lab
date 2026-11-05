@@ -95,7 +95,7 @@ export class Lab {
    const events=receipt.logs.flatMap(l=>{try{return [{address:l.address,...decodeEventLog({abi:same(l.address,this.p.escrow)?ABI.escrow:ABI.token,topics:l.topics,data:l.data})}];}catch{return [];}});
    check(events.some(e=>same(e.address,this.p.escrow)&&e.eventName==='OrderRefunded'&&e.args.orderId===BigInt(creation.orderId)&&e.args.amount===100n*UNIT),'100 PLABの返金イベントがありません。');
    check(events.some(e=>same(e.address,this.config.token.address)&&e.eventName==='Transfer'&&same(e.args.from,this.p.escrow)&&same(e.args.to,this.p.address)&&e.args.value===100n*UNIT),'100 PLABの返金送金がありません。');
-   Object.assign(record,{state:'confirmed',blockNumber:String(receipt.blockNumber),gasUsed:String(receipt.gasUsed),feeWei:String(receipt.gasUsed*receipt.effectiveGasPrice)});return true;
+   Object.assign(record,{state:'confirmed',nonce:String(tx.nonce),blockNumber:String(receipt.blockNumber),gasUsed:String(receipt.gasUsed),feeWei:String(receipt.gasUsed*receipt.effectiveGasPrice)});return true;
   }
   const intent=transactionIntent(this.config,this.p,record.index,history,record.deadline);
   check(same(tx.from,this.p.address)&&same(tx.to,intent.to)&&same(tx.input,intent.data)&&tx.value===0n,'取引内容が予定と一致しません。');
@@ -121,7 +121,7 @@ export class Lab {
     check(event(this.config.splitter,'SplitExecuted',a=>same(a.payer,this.p.escrow)&&a.amount===100n*UNIT&&a.toB===70n*UNIT&&a.toC===30n*UNIT),'分配イベントが不一致です。');
    }else check(transfer(this.p.escrow,this.p.address,amount),'返金額が不一致です。');
   }
-  Object.assign(record,{state:'confirmed',blockNumber:String(receipt.blockNumber),gasUsed:String(receipt.gasUsed),feeWei:String(receipt.gasUsed*receipt.effectiveGasPrice)});return true;
+  Object.assign(record,{state:'confirmed',nonce:String(tx.nonce),blockNumber:String(receipt.blockNumber),gasUsed:String(receipt.gasUsed),feeWei:String(receipt.gasUsed*receipt.effectiveGasPrice)});return true;
  }
  async refresh(){
   await this.guard();
@@ -145,10 +145,15 @@ export class Lab {
    const simulation={account:this.p.address,...intent,value:0n,gas:gasCap,maxFeePerGas:60000000000n,maxPriorityFeePerGas:50000000000n};
    await this.client.call(simulation);const estimate=await this.client.estimateGas(simulation),gas=(estimate*120n+99n)/100n;check(gas<=gasCap,'ガス見積もりが上限を超えました。');check(view.state.pol>=gas*60000000000n,'手数料用のテストPOLが不足しています。');
    await this.guard(true);
-   const record={index,to:intent.to,data:intent.data,...(deadline?{deadline}:{}),state:'requesting',requestedAt:new Date().toISOString(),nonceBefore:await this.client.getTransactionCount({address:this.p.address,blockTag:'pending'})};this.records.push(record);this.save();
+   const [confirmedNonce,pendingNonce]=await Promise.all([this.client.getTransactionCount({address:this.p.address}),this.client.getTransactionCount({address:this.p.address,blockTag:'pending'})]);
+   const reservation=this.records.find(r=>r.state==='cancelled-local'&&r.index===index),previous=this.records.find(r=>r.state==='confirmed'&&!r.recovery&&r.index===index-1);
+   let nonceBefore=previous?Number(previous.nonce??previous.nonceBefore)+1:confirmedNonce;
+   if(reservation){const reserved=Number(reservation.nonceBefore);check(Number.isSafeInteger(reserved)&&(!previous||reserved===nonceBefore)&&confirmedNonce===reserved&&pendingNonce===reserved,'以前の要求の送信状況が変わりました。「チェーンから進行を復元」で確認してください。');nonceBefore=reserved;}
+   else check(Number.isSafeInteger(nonceBefore)&&confirmedNonce===nonceBefore&&pendingNonce===nonceBefore,'別の送信または未確定取引があります。「チェーンから進行を復元」で確認してください。');
+   const record={index,to:intent.to,data:intent.data,...(deadline?{deadline}:{}),state:'requesting',requestedAt:new Date().toISOString(),nonceBefore};this.records.push(record);this.save();
    try{
     this.onStatus('MetaMaskへ署名を要求しました。MetaMaskアプリを開き、登録アカウントと内容を確認してください。');
-    record.hash=await this.provider.request({method:'eth_sendTransaction',params:[{from:this.p.address,...intent,value:'0x0',chainId:'0x13882',gas:toHex(gas),maxFeePerGas:toHex(60000000000n),maxPriorityFeePerGas:toHex(50000000000n)}]});record.state='pending';this.save();
+    record.hash=await this.provider.request({method:'eth_sendTransaction',params:[{from:this.p.address,...intent,value:'0x0',chainId:'0x13882',nonce:toHex(nonceBefore),gas:toHex(gas),maxFeePerGas:toHex(60000000000n),maxPriorityFeePerGas:toHex(50000000000n)}]});record.state='pending';this.save();
    }catch(e){if(e?.code===4001||e?.code===-32602){this.records.splice(this.records.indexOf(record),1);this.save();}throw e;}
    return record.hash;
   }finally{this.busy=false;}
@@ -187,7 +192,23 @@ export class Lab {
   if(checkpoint)check(checkpoint.transactionHashes.every(hash=>history.some(r=>same(r.hash,hash)&&r.state==='confirmed')),'主催者の復元取引内容が予定と一致しません。');
   // Keep unresolved requests: absence from successful logs does not prove non-broadcast.
   const unresolved=unresolvedRequests(this.records,history);
-  this.records=[...history,...unresolved];this.save();return this.refresh();
+  const reservations=this.records.filter(r=>r.state==='cancelled-local'&&!history.some(h=>h.index===r.index&&h.state==='confirmed'));
+  this.records=[...history,...unresolved,...reservations];this.save();return this.refresh();
+ }
+ async releaseUnsentRequest(){
+  check(!this.busy,'署名要求中です。MetaMaskで古い要求を拒否するか、このページを再読み込みしてから確認してください。');
+  const view=await this.recover();if(!view.pending)return view;
+  const unresolved=this.records.filter(r=>r.state==='requesting'||r.state==='pending');
+  check(unresolved.length===1,'複数の未確認要求があります。接続診断を実験者へ共有してください。');
+  const r=unresolved[0],nonce=Number(r.nonceBefore);
+  check(r.state==='requesting'&&!r.hash&&r.index===this.next()&&Number.isSafeInteger(nonce)&&nonce>=0,'送信済み、または送信状況を特定できない取引です。接続診断を実験者へ共有してください。');
+  await this.guard(true);
+  const [confirmed,pending]=await Promise.all([this.client.getTransactionCount({address:this.p.address}),this.client.getTransactionCount({address:this.p.address,blockTag:'pending'})]);
+  check(confirmed===nonce&&pending===nonce,'取引が送信または確定しています。記録を消さず、「チェーンから進行を復元」で確認してください。');
+  checkStage(view.state,this.next(),this.p.orderBase??0);
+  // Keep the record and reserve its nonce. A delayed old request and its retry
+  // cannot both execute, because every retry is submitted with this same nonce.
+  Object.assign(r,{state:'cancelled-local',retryReservedAt:new Date().toISOString()});this.save();return this.refresh();
  }
  async refundExpired(){
   check(!this.busy,'操作中です。');this.busy=true;

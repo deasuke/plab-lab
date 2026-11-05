@@ -45,3 +45,7 @@ test('unresolved send remains blocking; matching lost response is resolved',asyn
  const old={index:1,state:'requesting',nonceBefore:1,...transactionIntent(cfg,{escrow},1,[])};
  const match=setup({records:[old]});assert.equal((await match.lab.recover()).pending,false);assert.equal(match.lab.records.length,2);
 });
+test('manual recovery preserves a reserved retry nonce until the operation confirms',async()=>{
+ const reservation={index:2,state:'cancelled-local',nonceBefore:2};const a=setup({records:[reservation]});await a.lab.recover();assert.ok(a.lab.records.includes(reservation));
+ const b=setup({deposit:true,records:[reservation]});await b.lab.recover();assert.ok(!b.lab.records.includes(reservation));assert.equal(b.lab.next(),3);
+});
